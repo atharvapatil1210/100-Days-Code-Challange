@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Browser Navigation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            text-align: center;
+        }
+        input, button {
+            margin: 10px;
+            padding: 10px;
+        }
+        iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+        #bookmarkList {
+            margin-top: 20px;
+        }
+        #bookmarkList li {
+            list-style: none;
+        }
+        #bookmarkList a {
+            text-decoration: none;
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Real-Time Browser Navigation</h1>
+
+<!-- URL Input and Navigation Controls -->
+<input type="text" id="urlInput" placeholder="Enter URL or Website">
+<button onclick="visitWebsite()">Go</button>
+<button onclick="addBookmark()">⭐ Bookmark</button>
+<button onclick="startVoiceCommand()">🎙️ Voice Command</button>
+
+<h2>Bookmarks</h2>
+<ul id="bookmarkList"></ul>
+
+<!-- Iframe to display the current page -->
+<iframe id="pageFrame"></iframe>
+
+<!-- Firebase and Speech API -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+<script>
+    // Initialize Firebase
+    const firebaseConfig = {
+	apiKey: "AIzaSyAZQw9Mtm7sldmU6kc08G7wl2kcJRzQK_c",
+
+    	authDomain: "stack-6aa96.firebaseapp.com",
+
+    	projectId: "stack-6aa96",
+
+    	storageBucket: "stack-6aa96.firebasestorage.app",
+
+    	messagingSenderId: "61734540727",
+
+    	appId: "1:61734540727:web:7494db572dff5a53c8c432",
+
+    	measurementId: "G-847R3Q3NCR"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Global variables
+    let currentPage = null;
+    let backStack = [];
+    let forwardStack = [];
+    let bookmarks = JSON.parse(localStorage.getItem("bookmarks")) || [];
+
+    // Visit a website and display it
+    function visitWebsite() {
+        let url = document.getElementById("urlInput").value.trim();
+        if (url === "") {
+            alert("Please enter a valid URL!");
+            return;
+        }
+        if (!url.startsWith("http")) {
+            url = "https://" + url;
+        }
+
+        currentPage = url;
+        backStack.push(url);
+        forwardStack = [];
+        saveToLocalStorage();
+        saveHistoryToFirebase(url);
+
+        document.getElementById("pageFrame").src = url;
+    }
+
+    // Add current page to bookmarks
+    function addBookmark() {
+        if (!currentPage) {
+            alert("No page to bookmark!");
+            return;
+        }
+        if (!bookmarks.includes(currentPage)) {
+            bookmarks.push(currentPage);
+            localStorage.setItem("bookmarks", JSON.stringify(bookmarks));
+            displayBookmarks();
+        }
+    }
+
+    // Display the bookmarks
+    function displayBookmarks() {
+        let list = document.getElementById("bookmarkList");
+        list.innerHTML = "";
+        bookmarks.forEach(url => {
+            let item = document.createElement("li");
+            item.innerHTML = `<a href="#" onclick="visitFromBookmark('${url}')">${url}</a>`;
+            list.appendChild(item);
+        });
+    }
+
+    // Visit from bookmark
+    function visitFromBookmark(url) {
+        document.getElementById("urlInput").value = url;
+        visitWebsite();
+    }
+
+    // Save history to Firebase
+    function saveHistoryToFirebase(url) {
+        db.collection("history").add({
+            url: url,
+            timestamp: new Date()
+        }).then(() => console.log("History saved to Firebase!"))
+        .catch(error => console.error("Error saving history:", error));
+    }
+
+    // Save bookmarks and history to localStorage
+    function saveToLocalStorage() {
+        localStorage.setItem("backStack", JSON.stringify(backStack));
+        localStorage.setItem("forwardStack", JSON.stringify(forwardStack));
+    }
+
+    // Load bookmarks on page load
+    displayBookmarks();
+
+    // Voice command for navigation
+    function startVoiceCommand() {
+        let recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = "en-US";
+        recognition.start();
+
+        recognition.onresult = function(event) {
+            let command = event.results[0][0].transcript.toLowerCase();
+            console.log("Voice Command:", command);
+
+            if (command.includes("go to")) {
+                let site = command.replace("go to", "").trim();
+                let url = "https://www." + site + ".com";
+                document.getElementById("urlInput").value = url;
+                visitWebsite();
+            } else if (command === "back") {
+                goBack();
+            } else if (command === "forward") {
+                goForward();
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error("Voice recognition error:", event.error);
+        };
+    }
+
+    // Go back in history
+    function goBack() {
+        if (backStack.length > 1) {
+            forwardStack.push(backStack.pop());
+            currentPage = backStack[backStack.length - 1];
+            document.getElementById("pageFrame").src = currentPage;
+        } else {
+            alert("No previous pages.");
+        }
+    }
+
+    // Go forward in history
+    function goForward() {
+        if (forwardStack.length > 0) {
+            currentPage = forwardStack.pop();
+            backStack.push(currentPage);
+            document.getElementById("pageFrame").src = currentPage;
+        } else {
+            alert("No forward pages.");
+        }
+    }
+</script>
+
+</body>
+</html>
