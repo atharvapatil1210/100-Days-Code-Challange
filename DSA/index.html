@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Round Robin Scheduling</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Round Robin Scheduling Algorithm</h1>
+
+        <form id="process-form">
+            <label for="num-processes">Number of Processes:</label>
+            <input type="number" id="num-processes" required>
+
+            <div id="processes"></div>
+
+            <label for="time-quantum">Time Quantum:</label>
+            <input type="number" id="time-quantum" required>
+
+            <button type="submit">Run Round Robin</button>
+        </form>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        // Dynamically generate input fields for each process based on user input for the number of processes
+        document.getElementById('num-processes').addEventListener('input', function() {
+            const numProcesses = parseInt(this.value);
+            const processDiv = document.getElementById('processes');
+            processDiv.innerHTML = ''; // Clear previous fields
+
+            for (let i = 0; i < numProcesses; i++) {
+                const processField = document.createElement('div');
+                processField.innerHTML = `
+                    <label for="burst-time-${i}">Burst Time for Process ${i + 1}:</label>
+                    <input type="number" id="burst-time-${i}" required>
+                `;
+                processDiv.appendChild(processField);
+            }
+        });
+
+        document.getElementById('process-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const numProcesses = parseInt(document.getElementById('num-processes').value);
+            const timeQuantum = parseInt(document.getElementById('time-quantum').value);
+
+            const processes = [];
+            for (let i = 0; i < numProcesses; i++) {
+                const burstTime = parseInt(document.getElementById(`burst-time-${i}`).value);
+                processes.push({ id: i + 1, burstTime: burstTime, remainingTime: burstTime });
+            }
+
+            // Make an AJAX call to the server to execute Round Robin
+            fetch('/run_round_robin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ processes, timeQuantum })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const outputDiv = document.getElementById('output');
+                outputDiv.innerHTML = `
+                    <h2>Results</h2>
+                    <table>
+                        <tr><th>Process ID</th><th>Burst Time</th><th>Waiting Time</th><th>Turnaround Time</th></tr>
+                        ${data.processes.map(p => `
+                            <tr>
+                                <td>${p.id}</td>
+                                <td>${p.burstTime}</td>
+                                <td>${p.waitingTime}</td>
+                                <td>${p.turnaroundTime}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            })
+            .catch(error => console.log(error));
+        });
+    </script>
+</body>
+</html>
